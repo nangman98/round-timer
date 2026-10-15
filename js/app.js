@@ -26,7 +26,7 @@ function normalize(d){
   return{
     workouts:Array.isArray(d.workouts)?d.workouts.map(normW):PRESETS.map(normW),
     history:Array.isArray(d.history)?d.history.filter(h=>h&&h.at).slice(0,80).map(h=>({at:+h.at,name:String(h.name||"").slice(0,40),ms:+h.ms||0,done:!!h.done})):[],
-    settings:{sound:s.sound!==false,voice:s.voice!==false,flash:s.flash!==false,warn:s.warn!==false,tone:s.toneV===2&&["beep","bell","whistle"].includes(s.tone)?s.tone:"bell",toneV:2},
+    settings:{sound:s.sound!==false,voice:s.v===3?s.voice===true:false,flash:s.flash!==false,warn:s.warn!==false,tone:s.v===3&&["beep","bell","whistle"].includes(s.tone)?s.tone:"bell",v:3},
     updatedAt:+d.updatedAt||0
   };
 }
@@ -41,6 +41,7 @@ function fmt(sec){sec=Math.max(0,Math.round(sec));const h=Math.floor(sec/3600),m
   return h?h+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0"):m+":"+String(s).padStart(2,"0");}
 function fmtWords(sec){const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;const p=[];
   if(h)p.push(h+"시간");if(m)p.push(m+"분");if(s||!p.length)p.push(s+"초");return p.join(" ");}
+function clock(sec){sec=Math.max(0,Math.round(sec));return sec>=3600?fmt(sec):String(Math.floor(sec/60)).padStart(2,"0")+":"+String(sec%60).padStart(2,"0");}
 function short(sec){return sec<60?String(sec):fmt(sec);}
 function parseTime(str){str=String(str).trim().replace(/[.\s]/g,":");if(!str)return null;
   if(str.includes(":")){const [m,s]=str.split(":");const v=(parseInt(m)||0)*60+(parseInt(s)||0);return isFinite(v)?v:null;}
@@ -175,64 +176,28 @@ V.addEventListener("change",e=>{
 });
 
 /* ---------- audio, voice, wake lock ---------- */
-let ac=null,bus=null,noiseBuf=null;
-let keepEl=null;
-function silentWav(){const n=4410,b=new Uint8Array(44+n*2),v=new DataView(b.buffer),w=(o,t)=>{for(let i=0;i<t.length;i++)b[o+i]=t.charCodeAt(i);};
-  w(0,"RIFF");v.setUint32(4,36+n*2,true);w(8,"WAVEfmt ");v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,44100,true);v.setUint32(28,88200,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,"data");v.setUint32(40,n*2,true);
-  return URL.createObjectURL(new Blob([b],{type:"audio/wav"}));}
-function audioUnlock(){
-  /* iOS: 무음 모드에서도 효과음이 나오도록 재생용 오디오 세션으로 전환 */
-  try{if(navigator.audioSession)navigator.audioSession.type="playback";}catch(e){}
-  try{if(!navigator.audioSession){if(!keepEl){keepEl=new Audio(silentWav());keepEl.loop=true;keepEl.setAttribute("playsinline","");}keepEl.play().catch(()=>{});}}catch(e){}
-  try{
-    if(!ac){ac=new (window.AudioContext||window.webkitAudioContext)();
-      const comp=ac.createDynamicsCompressor();comp.threshold.value=-18;comp.knee.value=8;comp.ratio.value=6;comp.attack.value=.003;comp.release.value=.25;
-      const out=ac.createGain();out.gain.value=1.4;comp.connect(out);out.connect(ac.destination);bus=comp;}
-    if(ac.state!=="running")ac.resume().catch(()=>{});
-    const b=ac.createBuffer(1,1,22050),s=ac.createBufferSource();s.buffer=b;s.connect(ac.destination);s.start(0);
-  }catch(e){}
+/* 효과음은 sounds/*.m4a (tools/make-sounds.py로 직접 합성). <audio>로 재생해야 iPad 무음 모드에서도 들린다. */
+const SND={beep:["tick","warn","phase","finish"],bell:["tick","warn","phase","finish"],whistle:["tick","warn","phase","calm","finish"]};
+const sndEl={},primed=new Set();
+function snd(name){
+  if(!sndEl[name]){const a=new Audio("sounds/"+name+".m4a");a.preload="auto";a.setAttribute("playsinline","");sndEl[name]=a;}
+  return sndEl[name];
 }
-function env(g,t,peak,att,dur){g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+att);g.gain.exponentialRampToValueAtTime(.0001,t+dur);}
-function osc(type,f,t,dur,peak,att){const o=ac.createOscillator(),g=ac.createGain();o.type=type;o.frequency.value=f;env(g,t,peak,att||.008,dur);o.connect(g);g.connect(bus);o.start(t);o.stop(t+dur+.05);}
-function ding(t,f,dur){[[1,.34,1],[1.006,.22,1],[2,.14,.55],[2.76,.16,.45],[4.07,.08,.3],[5.4,.06,.22]].forEach(([r,a,d])=>osc("sine",f*r,t,dur*d,a,.002));}
-function noise(){if(!noiseBuf){const n=ac.sampleRate|0;noiseBuf=ac.createBuffer(1,n,ac.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;}return noiseBuf;}
-function whistle(t,dur){
-  const hold=(g,p)=>{g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(p,t+.02);g.gain.setValueAtTime(p,t+Math.max(.03,dur-.04));g.gain.exponentialRampToValueAtTime(.0001,t+dur);};
-  const o=ac.createOscillator(),g=ac.createGain(),l=ac.createOscillator(),lg=ac.createGain();
-  o.type="sine";o.frequency.value=2850;l.frequency.value=34;lg.gain.value=120;l.connect(lg);lg.connect(o.frequency);hold(g,.32);o.connect(g);g.connect(bus);
-  const s=ac.createBufferSource(),bp=ac.createBiquadFilter(),ng=ac.createGain();s.buffer=noise();bp.type="bandpass";bp.frequency.value=2850;bp.Q.value=5;hold(ng,.5);s.connect(bp);bp.connect(ng);ng.connect(bus);
-  [o,l,s].forEach(x=>{x.start(t);x.stop(t+dur+.05);});
+/* iOS는 사용자가 누른 순간에 한 번 재생해 둔 <audio>만 나중에 자동 재생을 허락한다 */
+function audioUnlock(){
+  try{if(navigator.audioSession)navigator.audioSession.type="playback";}catch(e){}
+  const tone=data.settings.tone;
+  for(const k of SND[tone]){const name=tone+"-"+k;if(primed.has(name))continue;primed.add(name);
+    const a=snd(name);a.muted=true;const p=a.play();
+    const done=()=>{if(a.muted){a.pause();a.currentTime=0;a.muted=false;}};
+    if(p&&p.then)p.then(done,()=>{a.muted=false;primed.delete(name);});else done();}
 }
 function beep(kind,seg,force){
-  if(!ac||!bus||(!data.settings.sound&&!force))return;
-  if(ac.state!=="running"){ac.resume().then(()=>play(kind,seg)).catch(()=>{});return;}
-  play(kind,seg);
-}
-/* 땡땡땡: 복싱 벨 세 번 */
-function bell3(t,last){ding(t,740,1.2);ding(t+.3,740,1.2);ding(t+.6,740,last?2.6:1.8);}
-function play(kind,seg){
-  try{
-    const t=ac.currentTime+.01,st=data.settings.tone,calm=!!seg&&seg!=="work"&&seg!=="prepare";
-    if(kind==="warn"){
-      if(st==="bell"){osc("triangle",1500,t,.06,.45,.002);osc("triangle",1500,t+.14,.06,.45,.002);}
-      else if(st==="whistle"){whistle(t,.08);whistle(t+.16,.08);}
-      else{osc("square",988,t,.09,.3);osc("square",988,t+.15,.09,.3);}
-      return;
-    }
-    if(st==="bell"){
-      if(kind==="tick")osc("square",880,t,.12,.3);
-      else if(kind==="phase"){if(seg!=="prepare")bell3(t);}
-      else bell3(t,true);
-    }else if(st==="whistle"){
-      if(kind==="tick")whistle(t,.09);
-      else if(kind==="phase"){if(calm){whistle(t,.18);whistle(t+.26,.18);}else whistle(t,.7);}
-      else{whistle(t,.15);whistle(t+.24,.15);whistle(t+.48,.9);}
-    }else{
-      if(kind==="tick")osc("square",880,t,.12,.3);
-      else if(kind==="phase")osc("square",1320,t,.45,.34);
-      else{osc("square",1046,t,.16,.3);osc("square",1318,t+.2,.16,.3);osc("square",1568,t+.4,.5,.3);}
-    }
-  }catch(e){}
+  if(!data.settings.sound&&!force)return;
+  const tone=data.settings.tone;
+  if(kind==="phase"&&tone==="bell"&&seg==="prepare")return;
+  if(kind==="phase"&&tone==="whistle"&&seg&&seg!=="work"&&seg!=="prepare")kind="calm";
+  try{const a=snd(tone+"-"+kind);a.muted=false;a.currentTime=0;const p=a.play();if(p&&p.catch)p.catch(()=>{});}catch(e){}
 }
 function speak(t){
   if(!data.settings.voice||!("speechSynthesis" in window))return;
@@ -249,7 +214,7 @@ function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("on");
 function flash(){if(!data.settings.flash)return;const f=$("#flash");f.classList.remove("on");void f.offsetWidth;f.classList.add("on");}
 
 /* ---------- runner ---------- */
-const RUN=$("#run"),DIG=$("#digits"),TRACK=$("#track");
+const RUN=$("#run"),DIG=$("#digits"),TRACK=$("#track"),NXT=$("#next"),RING=$("#ringFg"),RING_C=282.74;
 const R={w:null,segs:[],total:0,base:0,runAt:0,running:false,idx:-1,lastSec:-1,lastTick:0,raf:0,cue:false,finished:false,lastDig:"",exitArm:0,trackEls:[]};
 const ICON_PAUSE='<svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
 const ICON_RESUME='<svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.2v13.6a.7.7 0 0 0 1.06.6l10.6-6.8a.7.7 0 0 0 0-1.2L9.06 4.6A.7.7 0 0 0 8 5.2z"/></svg>';
@@ -266,6 +231,7 @@ function start(id){
   TRACK.className="track"+(R.segs.length>50?" dense":"");
   TRACK.innerHTML=R.segs.map(s=>'<span class="k-'+s.k+'" style="flex-grow:'+s.d+'"><b></b></span>').join("");
   R.trackEls=[...TRACK.children];
+  $("#rName").textContent=R.w.name;
   $("#done").hidden=true;RUN.hidden=false;document.body.style.overflow="hidden";
   resume();
   wakeOn().then(ok=>{if(!ok)toast("화면이 꺼지지 않게 자동 잠금 시간을 늘려 두세요");});
@@ -297,12 +263,12 @@ function onSegment(s,cue){
   if(R.running)$("#phase").textContent=LABEL[s.k];
   R.trackEls.forEach((el,i)=>{el.className="k-"+R.segs[i].k+(i<R.idx?" past":i===R.idx?" now":"");if(i!==R.idx)el.firstChild.style.width="";});
   const n=R.segs[R.idx+1];
-  $("#next").innerHTML=n?"다음 <b>"+LABEL[n.k]+" "+fmt(n.d)+"</b>":"마지막 구간";
-  const W=R.w,parts=[];
-  const r=s.r||(s.k==="cooldown"?W.rounds:0),c=s.c||(s.k==="cooldown"?W.cycles:1);
-  parts.push('<div><b>'+r+"/"+W.rounds+'</b><small>라운드</small></div>');
-  if(W.cycles>1)parts.push('<div><b>'+c+"/"+W.cycles+'</b><small>세트</small></div>');
-  $("#meta").innerHTML=parts.join("");
+  NXT.dataset.k=n?n.k:"end";
+  $("#nLabel").textContent=n?LABEL[n.k]+":":"마지막 구간";$("#nTime").textContent=n?clock(n.d):"";
+  /* 남은 라운드: 지금 세트에서 아직 끝나지 않은 운동 구간 수 (진행 중인 것 포함), 남은 세트: 아직 남은 세트 수 */
+  const ahead=R.segs.slice(R.idx).filter(x=>x.k==="work"),curC=ahead.length?ahead[0].c:0;
+  $("#cRound").textContent=ahead.filter(x=>x.c===curC).length;
+  $("#cSet").textContent=new Set(ahead.map(x=>x.c)).size;
   if(cue){beep("phase",s.k);const ph=phrase(s);clearTimeout(speakT);speakT=setTimeout(()=>speak(ph),data.settings.sound&&s.k!=="prepare"?1100:0);flash();}
 }
 function frame(){
@@ -318,7 +284,8 @@ function frame(){
     }
     R.lastSec=sec;
   }
-  setDigits(fmt(sec));
+  setDigits(clock(sec));
+  RING.style.strokeDashoffset=(RING_C*(1-(e-s.t0)/(s.t1-s.t0))).toFixed(1);
   const lt=fmt(Math.ceil((R.total-e)/1000));if(lt!==R.lastLeft){R.lastLeft=lt;$("#mLeft").textContent=lt;}
   const cur=R.trackEls[i];if(cur)cur.firstChild.style.width=((e-s.t0)/(s.t1-s.t0)*100).toFixed(2)+"%";
   R.lastTick=now;
@@ -331,7 +298,7 @@ function logHistory(ms,done){
 }
 function finish(){
   cancelAnimationFrame(R.raf);R.running=false;R.finished=true;R.base=R.total;
-  RUN.dataset.kind="done";R.trackEls.forEach((el,i)=>{el.className="k-"+R.segs[i].k+" past";el.firstChild.style.width="";});
+  RUN.dataset.kind="done";RING.style.strokeDashoffset=0;R.trackEls.forEach((el,i)=>{el.className="k-"+R.segs[i].k+" past";el.firstChild.style.width="";});
   beep("finish");clearTimeout(speakT);speakT=setTimeout(()=>speak("운동 완료"),data.settings.sound?1400:0);flash();wakeOff();
   $("#doneTime").textContent=fmt(R.total/1000);
   $("#doneSub").textContent=R.w.name+"  "+R.w.rounds*R.w.cycles+"라운드";
@@ -362,7 +329,6 @@ document.addEventListener("keydown",e=>{
   else if(e.key==="ArrowRight")next();else if(e.key==="ArrowLeft")prev();else if(e.key==="Escape")askClose();
 });
 document.addEventListener("visibilitychange",()=>{
-  if(document.visibilityState==="visible"&&ac&&ac.state!=="running")ac.resume().catch(()=>{});
   if(document.visibilityState==="visible"&&R.w&&R.running&&!R.finished){wakeOn();R.lastTick=0;cancelAnimationFrame(R.raf);frame();}
 });
 

@@ -1,5 +1,5 @@
 /* 오프라인 캐시. 앱 파일을 고치면 VERSION을 올려야 기기에 새 버전이 내려간다. */
-const VERSION = "v3";
+const VERSION = "v4";
 const CACHE = "round-timer-" + VERSION;
 const ASSETS = [
   "./",
@@ -11,7 +11,20 @@ const ASSETS = [
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
-  "./icons/apple-touch-icon.png"
+  "./icons/apple-touch-icon.png",
+  "./sounds/beep-finish.m4a",
+  "./sounds/beep-phase.m4a",
+  "./sounds/beep-tick.m4a",
+  "./sounds/beep-warn.m4a",
+  "./sounds/bell-finish.m4a",
+  "./sounds/bell-phase.m4a",
+  "./sounds/bell-tick.m4a",
+  "./sounds/bell-warn.m4a",
+  "./sounds/whistle-calm.m4a",
+  "./sounds/whistle-finish.m4a",
+  "./sounds/whistle-phase.m4a",
+  "./sounds/whistle-tick.m4a",
+  "./sounds/whistle-warn.m4a"
 ];
 
 self.addEventListener("install", (e) => {

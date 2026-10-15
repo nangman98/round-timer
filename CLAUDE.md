@@ -10,7 +10,8 @@
 - **모든 경로는 상대경로** (`./`, `css/app.css` …). GitHub Pages 프로젝트 사이트는 `/<repo>/` 하위 경로에서 돈다.
 - **외부 CDN·외부 요청 금지.** 오프라인(도장 와이파이 불안정)에서도 돼야 한다. 글꼴도 `fonts/`에 자체 호스팅.
 - 앱 파일을 바꾸면 **`sw.js`의 `VERSION`을 올린다.** 새 파일을 추가하면 `ASSETS` 배열에도 넣는다.
-- 다른 상용 앱의 로고·디자인·소리 파일을 가져오지 않는다. 소리는 Web Audio로 직접 합성한다.
+- 다른 상용 앱의 로고·디자인·소리 파일을 가져오지 않는다. 소리는 `tools/make-sounds.py`로 직접 합성해 `sounds/*.m4a`로 넣는다
+  (iPad 무음 모드에서도 들리도록 Web Audio가 아니라 `<audio>`로 재생).
 
 ## 파일 구조
 ```
@@ -20,6 +21,8 @@ js/app.js               앱 전체 로직 (IIFE 하나)
 sw.js                   서비스 워커: 앱 셸 캐시 (stale-while-revalidate)
 manifest.webmanifest    PWA 매니페스트 (이름, 아이콘, standalone)
 icons/                  192/512/maskable/apple-touch 아이콘
+sounds/                 효과음 m4a (tools/make-sounds.py가 생성)
+tools/make-sounds.py    효과음 합성 스크립트 (numpy + afconvert)
 fonts/                  Big Shoulders Display 800 (숫자용, latin 서브셋) + OFL.txt
 ```
 
@@ -29,7 +32,7 @@ fonts/                  Big Shoulders Display 800 (숫자용, latin 서브셋) +
   {
     workouts: [{ id, name, prepare, work, rest, rounds, cycles, cycleRest, cooldown }],  // 시간은 초
     history:  [{ at, name, ms, done }],                                                  // 최근 80개
-    settings: { sound, voice, flash, warn, tone },   // tone: "beep" | "bell" | "whistle"
+    settings: { sound, voice, flash, warn, tone, v },   // tone: "beep" | "bell" | "whistle", 기본 bell·음성 끔 (v:3 마이그레이션)
     updatedAt
   }
   ```
@@ -43,7 +46,7 @@ fonts/                  Big Shoulders Display 800 (숫자용, latin 서브셋) +
   `R.lastTick`이 1.5초 이상 지났으면(복귀 직후) 밀린 알림을 한꺼번에 울리지 않는다.
 - **알림**
   - `beep(kind, segKind, force)` — kind: `tick`(마지막 3초) `warn`(종료 10초 전) `phase`(구간 전환) `finish`
-  - 소리는 `tone` 설정에 따라 합성: `osc()`, `ding()`(벨), `whistle()`. 모두 컴프레서 `bus`로 출력.
+  - `tone` 설정에 따라 `sounds/<tone>-<kind>.m4a`를 `<audio>`로 재생. 벨은 카운트다운 띠, 라운드 시작·끝 땡땡땡.
   - `speak()` 한국어 음성(speechSynthesis), `flash()` 화면 깜빡임
   - iOS 오디오 잠금 해제를 위해 사용자가 누르는 순간 `audioUnlock()`을 호출한다 (시작/일시정지/건너뛰기 버튼).
 - **화면** — `view` 상태(`home | edit | history | settings`)를 `render*()`가 innerHTML로 그린다.
