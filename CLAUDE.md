@@ -32,7 +32,7 @@ fonts/                  Big Shoulders Display 800 (숫자용, latin 서브셋) +
   {
     workouts: [{ id, name, prepare, work, rest, rounds, cycles, cycleRest, cooldown }],  // 시간은 초
     history:  [{ at, name, ms, done }],                                                  // 최근 80개
-    settings: { sound, voice, flash, warn, cd, bell, v },   // cd: 카운트다운 소리(CD), bell: 시작·끝 소리(BELL), 기본 rec/real3·음성 끔
+    settings: { sound, voice, flash, warn, cd, bell, v },   // cd: 카운트다운 소리(CD), bell: 시작·끝 소리(BELL), 기본 rec/real(시작 땡·끝 땡땡땡)·음성 끔
     updatedAt
   }
   ```

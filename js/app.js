@@ -10,7 +10,7 @@ const uid=()=>"w"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const KEY="round-timer.v1";
 /* 소리 선택지: 카운트다운(마지막 3초) / 라운드 시작·끝. 파일은 sounds/cd-<키>.m4a, sounds/<키>-phase|finish.m4a */
 const CD=[["rec","삐 (녹음)"],["beep","띠 (전자음)"],["high","띡 (높은음)"],["wood","딱 (우드블록)"],["whistle","호루라기"]];
-const BELL=[["real3","땡땡땡 (복싱 벨)"],["real1","땡 (복싱 벨)"],["synth","땡땡땡 (합성음)"],["beep","삐- (전자음)"],["whistle","호루라기"]];
+const BELL=[["real","시작 땡 · 끝 땡땡땡"],["real3","땡땡땡 (복싱 벨)"],["real1","땡 (복싱 벨)"],["synth","땡땡땡 (합성음)"],["beep","삐- (전자음)"],["whistle","호루라기"]];
 const LIMITS={prepare:[0,600],work:[1,3600],rest:[0,3600],rounds:[1,99],cycles:[1,20],cycleRest:[0,3600],cooldown:[0,3600]};
 const PRESETS=[
   {name:"스파링 5분",prepare:10,work:300,rest:60,rounds:6,cycles:1,cycleRest:0,cooldown:0},
@@ -30,7 +30,7 @@ function normalize(d){
     workouts:Array.isArray(d.workouts)?d.workouts.map(normW):PRESETS.map(normW),
     history:Array.isArray(d.history)?d.history.filter(h=>h&&h.at).slice(0,80).map(h=>({at:+h.at,name:String(h.name||"").slice(0,40),ms:+h.ms||0,done:!!h.done})):[],
     settings:{sound:s.sound!==false,voice:s.v>=3?s.voice===true:false,flash:s.flash!==false,warn:s.warn!==false,
-      cd:CD.some(o=>o[0]===s.cd)?s.cd:"rec",bell:BELL.some(o=>o[0]===s.bell)?s.bell:"real3",v:4},
+      cd:CD.some(o=>o[0]===s.cd)?s.cd:"rec",bell:s.v>=5&&BELL.some(o=>o[0]===s.bell)?s.bell:"real",v:5},
     updatedAt:+d.updatedAt||0
   };
 }
@@ -192,6 +192,7 @@ function sndName(kind,seg){
   if(kind==="tick")return "cd-"+st.cd;
   if(kind==="warn")return "warn-"+(b==="beep"||b==="whistle"?b:"bell");
   if(kind==="phase"&&b==="whistle"&&seg&&seg!=="work")return "whistle-calm";
+  if(b==="real")return kind==="phase"&&seg==="work"?"real1-phase":"real3-phase";   // 시작은 땡, 끝·완료는 땡땡땡
   return b+"-"+kind;
 }
 /* iOS는 사용자가 누른 순간에 한 번 재생해 둔 <audio>만 나중에 자동 재생을 허락한다 */
