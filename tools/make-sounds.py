@@ -39,24 +39,30 @@ def mix(total, parts):
     for x, at in parts: place(buf, x, at)
     return buf
 
+def wood(d=.12):
+    """우드블록 '딱': 짧게 감쇠하는 두 공명음"""
+    tt = t(d)
+    return (np.sin(2 * np.pi * 1850 * tt) + .6 * np.sin(2 * np.pi * 2900 * tt)) * np.exp(-tt / .022)
+
 SOUNDS = {
-    # 전자음
-    "beep-tick":   mix(.2,  [(beep(880, .14), 0)]),
-    "beep-warn":   mix(.4,  [(beep(988, .1), 0), (beep(988, .1), .16)]),
-    "beep-phase":  mix(.6,  [(beep(1320, .5), 0)]),
-    "beep-finish": mix(1.0, [(beep(1046, .16), 0), (beep(1318, .16), .2), (beep(1568, .5), .4)]),
-    # 복싱 벨: 카운트다운은 띠, 라운드 시작·끝은 땡땡땡
-    "bell-tick":   mix(.2,  [(beep(880, .14), 0)]),
-    "bell-warn":   mix(.5,  [(ding(1500, .25, 3) * .5, 0), (ding(1500, .25, 4) * .5, .18)]),
-    "bell-phase":  mix(3.0, [(ding(seed=0), 0), (ding(seed=1), .32), (ding(seed=2), .64)]),
-    "bell-finish": mix(4.2, [(ding(seed=0), 0), (ding(seed=1), .32), (ding(seed=2), .64),
-                             (ding(seed=3), 1.2), (ding(seed=4), 1.52), (ding(d=3.0, seed=5), 1.84)]),
-    # 호루라기
-    "whistle-tick":   mix(.15, [(whistle(.09), 0)]),
-    "whistle-warn":   mix(.3,  [(whistle(.08), 0), (whistle(.08), .16)]),
+    # 카운트다운 (마지막 3초) — cd-rec 은 cut-bell.py 가 녹음에서 만든다
+    "cd-beep":    mix(.2,  [(beep(880, .14), 0)]),
+    "cd-high":    mix(.15, [(beep(1760, .07, "sine"), 0)]),
+    "cd-wood":    mix(.15, [(wood(), 0)]),
+    "cd-whistle": mix(.15, [(whistle(.09), 0)]),
+    # 라운드 시작·끝 / 운동 완료 — real3·real1 은 cut-bell.py 가 녹음에서 만든다
+    "synth-phase":    mix(3.0, [(ding(seed=0), 0), (ding(seed=1), .32), (ding(seed=2), .64)]),
+    "synth-finish":   mix(4.2, [(ding(seed=0), 0), (ding(seed=1), .32), (ding(seed=2), .64),
+                                (ding(seed=3), 1.2), (ding(seed=4), 1.52), (ding(d=3.0, seed=5), 1.84)]),
+    "beep-phase":     mix(.6,  [(beep(1320, .5), 0)]),
+    "beep-finish":    mix(1.0, [(beep(1046, .16), 0), (beep(1318, .16), .2), (beep(1568, .5), .4)]),
     "whistle-phase":  mix(.8,  [(whistle(.7), 0)]),
     "whistle-calm":   mix(.5,  [(whistle(.18), 0), (whistle(.18), .26)]),
     "whistle-finish": mix(1.5, [(whistle(.15), 0), (whistle(.15), .24), (whistle(.9), .48)]),
+    # 종료 10초 전
+    "warn-bell":    mix(.5,  [(ding(1500, .25, 3) * .5, 0), (ding(1500, .25, 4) * .5, .18)]),
+    "warn-beep":    mix(.4,  [(beep(988, .1), 0), (beep(988, .1), .16)]),
+    "warn-whistle": mix(.3,  [(whistle(.08), 0), (whistle(.08), .16)]),
 }
 
 os.makedirs(OUT, exist_ok=True)

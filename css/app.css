@@ -105,6 +105,8 @@ svg{display:block}
 .tones small{display:block;color:var(--muted);font-size:13px}
 .seg{display:flex;gap:4px;margin-top:12px;padding:4px;border-radius:12px;background:var(--field)}
 .seg button{flex:1;padding:11px 6px;border-radius:9px;font-size:15px;font-weight:600;color:var(--muted)}
+.seg.wrap{flex-wrap:wrap}
+.seg.wrap button{flex:1 1 30%;min-width:128px}
 .seg button[aria-checked="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.14)}
 
 /* run screen — 위: 현재 구간(꽉 찬 색), 가운데: 다음 구간, 아래: 남은 라운드·진행 링·남은 세트 */
@@ -129,7 +131,7 @@ button.icon:active{background:rgba(255,255,255,.15)}
 .ttl small{display:block;font-size:13px;opacity:.7}
 .ttl span{font-family:var(--num);font-weight:800;font-size:17px;font-variant-numeric:tabular-nums}
 .exitmsg{grid-column:2;text-align:center;font-size:14px;font-weight:600}
-.cur{grid-area:center;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;
+.cur{grid-area:center;min-height:0;touch-action:none;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;
   background:var(--kc);color:var(--ki);transition:background-color .2s;padding:8px calc(var(--sr) + 12px) 8px calc(var(--sl) + 12px)}
 .phase{font-size:clamp(34px,10vw,64px);font-weight:800;letter-spacing:-.02em;line-height:1}
 .digits{display:flex;justify-content:center;font-family:var(--num);font-weight:800;line-height:.86;margin:.04em 0 0;
@@ -151,7 +153,7 @@ button.icon:active{background:rgba(255,255,255,.15)}
 .track span.past{opacity:.6}
 .track span.now{opacity:1;background:transparent;box-shadow:inset 0 0 0 1.5px var(--kc)}
 .track span.now b{position:absolute;left:0;top:0;bottom:0;background:var(--kc)}
-.ctrls{grid-area:ctrls;display:grid;grid-template-columns:1fr auto auto auto 1fr;align-items:center;justify-items:center;gap:6px;
+.ctrls{grid-area:ctrls;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;justify-items:center;gap:6px;
   padding:10px calc(var(--sr) + 10px) calc(env(safe-area-inset-bottom,0px) + 14px) calc(var(--sl) + 10px)}
 .cnt{text-align:center;line-height:1}
 .cnt b{display:block;font-family:var(--num);font-weight:800;font-size:52px;color:var(--kc);font-variant-numeric:tabular-nums}

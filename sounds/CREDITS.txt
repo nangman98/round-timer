@@ -1,0 +1,4 @@
+sounds/bell-phase.m4a, bell-finish.m4a, bell-tick.m4a
+  Freesound 520998 "Boxing Bell Signals" (Mateusz_Chenc), 368779 "Short beep countdown" (gurie)
+  — 둘 다 CC0 1.0 (퍼블릭 도메인). tools/cut-bell.py 로 잘라 만듦.
+그 밖의 sounds/*.m4a: tools/make-sounds.py 로 직접 합성.

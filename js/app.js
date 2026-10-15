@@ -8,6 +8,9 @@ const uid=()=>"w"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 
 /* ---------- data ---------- */
 const KEY="round-timer.v1";
+/* 소리 선택지: 카운트다운(마지막 3초) / 라운드 시작·끝. 파일은 sounds/cd-<키>.m4a, sounds/<키>-phase|finish.m4a */
+const CD=[["rec","삐 (녹음)"],["beep","띠 (전자음)"],["high","띡 (높은음)"],["wood","딱 (우드블록)"],["whistle","호루라기"]];
+const BELL=[["real3","땡땡땡 (복싱 벨)"],["real1","땡 (복싱 벨)"],["synth","땡땡땡 (합성음)"],["beep","삐- (전자음)"],["whistle","호루라기"]];
 const LIMITS={prepare:[0,600],work:[1,3600],rest:[0,3600],rounds:[1,99],cycles:[1,20],cycleRest:[0,3600],cooldown:[0,3600]};
 const PRESETS=[
   {name:"스파링 5분",prepare:10,work:300,rest:60,rounds:6,cycles:1,cycleRest:0,cooldown:0},
@@ -26,7 +29,8 @@ function normalize(d){
   return{
     workouts:Array.isArray(d.workouts)?d.workouts.map(normW):PRESETS.map(normW),
     history:Array.isArray(d.history)?d.history.filter(h=>h&&h.at).slice(0,80).map(h=>({at:+h.at,name:String(h.name||"").slice(0,40),ms:+h.ms||0,done:!!h.done})):[],
-    settings:{sound:s.sound!==false,voice:s.v===3?s.voice===true:false,flash:s.flash!==false,warn:s.warn!==false,tone:s.v===3&&["beep","bell","whistle"].includes(s.tone)?s.tone:"bell",v:3},
+    settings:{sound:s.sound!==false,voice:s.v>=3?s.voice===true:false,flash:s.flash!==false,warn:s.warn!==false,
+      cd:CD.some(o=>o[0]===s.cd)?s.cd:"rec",bell:BELL.some(o=>o[0]===s.bell)?s.bell:"real3",v:4},
     updatedAt:+d.updatedAt||0
   };
 }
@@ -135,8 +139,9 @@ function renderHistory(){
       '<button class="linkbtn" data-clear>'+(clearArm>Date.now()?"한 번 더 누르면 모두 지워져요":"기록 지우기")+'</button>'
       :'<p class="empty">끝낸 운동이 여기에 쌓여요.</p>');
 }
-const TONES=[["beep","전자음"],["bell","복싱 벨"],["whistle","호루라기"]];
-function toneSel(){return '<div class="tones"><span>소리 종류<small>눌러서 미리 들어 보세요</small></span><div class="seg" role="radiogroup" aria-label="소리 종류">'+TONES.map(([k,l])=>'<button role="radio" aria-checked="'+(data.settings.tone===k)+'" data-tone="'+k+'">'+l+'</button>').join("")+'</div></div>';}
+function pick(key,title,opts){return '<div class="tones"><span>'+title+'<small>눌러서 미리 들어 보세요</small></span><div class="seg wrap" role="radiogroup" aria-label="'+title+'">'+
+  opts.map(([k,l])=>'<button role="radio" aria-checked="'+(data.settings[key]===k)+'" data-pick="'+key+'" data-val="'+k+'">'+l+'</button>').join("")+'</div></div>';}
+function toneSel(){return pick("cd","카운트다운 소리 (마지막 3초)",CD)+pick("bell","라운드 시작·끝 소리",BELL);}
 const SETS=[["sound","효과음","마지막 3초와 구간이 바뀔 때"],["warn","종료 10초 전 알림","30초 이상인 운동 구간에서"],["voice","음성 안내","구간 이름을 읽어 줘요"],["flash","화면 깜빡임","구간이 바뀔 때 한 번 번쩍"]];
 function renderSettings(){
   V.innerHTML='<header class="top"><button class="back" data-go="home">'+CHEV+'목록</button><h2>설정</h2></header><div style="border-top:1px solid var(--line)">'+
@@ -153,7 +158,7 @@ V.addEventListener("click",e=>{
   if(b.hasAttribute("data-new")){const w=normW({name:"새 운동",prepare:10,work:30,rest:15,rounds:8,cycles:1});data.workouts.push(w);persist();editId=w.id;view="edit";render();window.scrollTo(0,0);setTimeout(()=>{const n=$("#fName");n&&n.select();},50);return;}
   if(b.hasAttribute("data-del")){data.workouts=data.workouts.filter(w=>w.id!==editId);persist();view="home";render();return;}
   if(b.dataset.set){const k=b.dataset.set;data.settings[k]=!data.settings[k];persist();renderSettings();return;}
-  if(b.dataset.tone){data.settings.tone=b.dataset.tone;persist();renderSettings();audioUnlock();beep("phase","work",true);return;}
+  if(b.dataset.pick){const k=b.dataset.pick;data.settings[k]=b.dataset.val;persist();renderSettings();audioUnlock();beep(k==="cd"?"tick":"phase","work",true);return;}
   if(b.hasAttribute("data-clear")){if(clearArm>Date.now()){data.history=[];clearArm=0;persist();}else{clearArm=Date.now()+3000;setTimeout(()=>{if(view==="history")renderHistory();},3100);}renderHistory();return;}
 });
 /* steppers with press-and-hold */
@@ -177,27 +182,31 @@ V.addEventListener("change",e=>{
 
 /* ---------- audio, voice, wake lock ---------- */
 /* 효과음은 sounds/*.m4a (tools/make-sounds.py로 직접 합성). <audio>로 재생해야 iPad 무음 모드에서도 들린다. */
-const SND={beep:["tick","warn","phase","finish"],bell:["tick","warn","phase","finish"],whistle:["tick","warn","phase","calm","finish"]};
 const sndEl={},primed=new Set();
 function snd(name){
   if(!sndEl[name]){const a=new Audio("sounds/"+name+".m4a");a.preload="auto";a.setAttribute("playsinline","");sndEl[name]=a;}
   return sndEl[name];
 }
+function sndName(kind,seg){
+  const st=data.settings,b=st.bell;
+  if(kind==="tick")return "cd-"+st.cd;
+  if(kind==="warn")return "warn-"+(b==="beep"||b==="whistle"?b:"bell");
+  if(kind==="phase"&&b==="whistle"&&seg&&seg!=="work")return "whistle-calm";
+  return b+"-"+kind;
+}
 /* iOS는 사용자가 누른 순간에 한 번 재생해 둔 <audio>만 나중에 자동 재생을 허락한다 */
 function audioUnlock(){
   try{if(navigator.audioSession)navigator.audioSession.type="playback";}catch(e){}
-  const tone=data.settings.tone;
-  for(const k of SND[tone]){const name=tone+"-"+k;if(primed.has(name))continue;primed.add(name);
+  for(const name of [sndName("tick"),sndName("warn"),sndName("phase","work"),sndName("phase","rest"),sndName("finish")]){
+    if(primed.has(name))continue;primed.add(name);
     const a=snd(name);a.muted=true;const p=a.play();
     const done=()=>{if(a.muted){a.pause();a.currentTime=0;a.muted=false;}};
     if(p&&p.then)p.then(done,()=>{a.muted=false;primed.delete(name);});else done();}
 }
 function beep(kind,seg,force){
   if(!data.settings.sound&&!force)return;
-  const tone=data.settings.tone;
-  if(kind==="phase"&&tone==="bell"&&seg==="prepare")return;
-  if(kind==="phase"&&tone==="whistle"&&seg&&seg!=="work"&&seg!=="prepare")kind="calm";
-  try{const a=snd(tone+"-"+kind);a.muted=false;a.currentTime=0;const p=a.play();if(p&&p.catch)p.catch(()=>{});}catch(e){}
+  if(kind==="phase"&&seg==="prepare")return;
+  try{const a=snd(sndName(kind,seg));a.muted=false;a.currentTime=0;const p=a.play();if(p&&p.catch)p.catch(()=>{});}catch(e){}
 }
 function speak(t){
   if(!data.settings.voice||!("speechSynthesis" in window))return;
@@ -310,6 +319,7 @@ function closeRun(){
   cancelAnimationFrame(R.raf);R.running=false;R.w=null;wakeOff();
   clearTimeout(speakT);if("speechSynthesis" in window)speechSynthesis.cancel();
   RUN.hidden=true;document.body.style.overflow="";render();
+  if(window.__swPending)location.reload();
 }
 function askClose(){
   if(R.finished||elapsed()<3000)return closeRun();
@@ -317,10 +327,15 @@ function askClose(){
   R.exitArm=Date.now()+2500;toast("한 번 더 누르면 운동을 끝내요");
 }
 $("#bPlay").addEventListener("click",toggle);
-$("#bNext").addEventListener("click",next);
-$("#bPrev").addEventListener("click",prev);
 $("#bClose").addEventListener("click",askClose);
-$("#center").addEventListener("click",toggle);
+/* 숫자 화면: 탭하면 일시정지/계속, 왼쪽으로 밀면 다음 구간, 오른쪽으로 밀면 이전 구간 */
+let swX=null,swY=0,swiped=false;
+$("#center").addEventListener("pointerdown",e=>{swX=e.clientX;swY=e.clientY;swiped=false;});
+$("#center").addEventListener("pointerup",e=>{
+  if(swX===null)return;const dx=e.clientX-swX,dy=e.clientY-swY;swX=null;
+  if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5){swiped=true;dx<0?next():prev();}
+});
+$("#center").addEventListener("click",()=>{if(swiped){swiped=false;return;}toggle();});
 $("#bDoneClose").addEventListener("click",closeRun);
 $("#bAgain").addEventListener("click",()=>{const id=data.workouts.find(w=>w.id===(R.w&&R.w.id))?R.w.id:null;if(id){start(id);}else closeRun();});
 document.addEventListener("keydown",e=>{
@@ -337,5 +352,9 @@ render();
 /* ---------- offline / install ---------- */
 if("serviceWorker" in navigator&&location.protocol!=="file:"){
   window.addEventListener("load",()=>{navigator.serviceWorker.register("./sw.js").catch(()=>{});});
+  /* 새 버전이 설치되면 한 번 새로고침해서 바로 적용 (운동 중이면 끝난 뒤에) */
+  const had=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{if(!had)return;if(RUN.hidden)location.reload();else window.__swPending=true;});
+  document.addEventListener("visibilitychange",()=>{if(window.__swPending&&RUN.hidden&&document.visibilityState==="visible")location.reload();});
 }
 })();

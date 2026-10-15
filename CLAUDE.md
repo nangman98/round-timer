@@ -32,7 +32,7 @@ fonts/                  Big Shoulders Display 800 (숫자용, latin 서브셋) +
   {
     workouts: [{ id, name, prepare, work, rest, rounds, cycles, cycleRest, cooldown }],  // 시간은 초
     history:  [{ at, name, ms, done }],                                                  // 최근 80개
-    settings: { sound, voice, flash, warn, tone, v },   // tone: "beep" | "bell" | "whistle", 기본 bell·음성 끔 (v:3 마이그레이션)
+    settings: { sound, voice, flash, warn, cd, bell, v },   // cd: 카운트다운 소리(CD), bell: 시작·끝 소리(BELL), 기본 rec/real3·음성 끔
     updatedAt
   }
   ```
@@ -46,13 +46,14 @@ fonts/                  Big Shoulders Display 800 (숫자용, latin 서브셋) +
   `R.lastTick`이 1.5초 이상 지났으면(복귀 직후) 밀린 알림을 한꺼번에 울리지 않는다.
 - **알림**
   - `beep(kind, segKind, force)` — kind: `tick`(마지막 3초) `warn`(종료 10초 전) `phase`(구간 전환) `finish`
-  - `tone` 설정에 따라 `sounds/<tone>-<kind>.m4a`를 `<audio>`로 재생. 벨은 카운트다운 띠, 라운드 시작·끝 땡땡땡.
+  - `sndName()`이 설정(`cd`, `bell`)으로 `sounds/*.m4a`를 고르고 `<audio>`로 재생. 복싱 벨 녹음은 `tools/cut-bell.py`(Freesound CC0, `sounds/CREDITS.txt`).
   - `speak()` 한국어 음성(speechSynthesis), `flash()` 화면 깜빡임
   - iOS 오디오 잠금 해제를 위해 사용자가 누르는 순간 `audioUnlock()`을 호출한다 (시작/일시정지/건너뛰기 버튼).
 - **화면** — `view` 상태(`home | edit | history | settings`)를 `render*()`가 innerHTML로 그린다.
   사용자 입력 문자열은 반드시 `esc()`로 이스케이프. 편집은 바뀔 때마다 자동 저장(`persist()`).
 - **실행 화면** — `start(id)` → `#run` 오버레이. `pause/resume/next/prev/seek/finish/closeRun`.
   Wake Lock으로 화면 꺼짐 방지를 시도하고, 실패하면 안내 토스트를 띄운다.
+  버튼은 시작/멈춤 하나. 숫자 화면 탭=일시정지, 좌우 스와이프=구간 이동.
   키보드: Space 일시정지, ←/→ 구간 이동, Esc 종료(두 번 누름).
 
 ## 로컬 실행

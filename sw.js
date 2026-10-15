@@ -1,5 +1,6 @@
-/* 오프라인 캐시. 앱 파일을 고치면 VERSION을 올려야 기기에 새 버전이 내려간다. */
-const VERSION = "v4";
+/* 오프라인 캐시. 앱 파일을 고치면 VERSION을 올려야 기기에 새 버전이 내려간다.
+   설치할 때 브라우저 HTTP 캐시를 건너뛰어(cache:"reload") 옛 파일과 새 파일이 섞이지 않게 한다. */
+const VERSION = "v6";
 const CACHE = "round-timer-" + VERSION;
 const ASSETS = [
   "./",
@@ -14,21 +15,27 @@ const ASSETS = [
   "./icons/apple-touch-icon.png",
   "./sounds/beep-finish.m4a",
   "./sounds/beep-phase.m4a",
-  "./sounds/beep-tick.m4a",
-  "./sounds/beep-warn.m4a",
-  "./sounds/bell-finish.m4a",
-  "./sounds/bell-phase.m4a",
-  "./sounds/bell-tick.m4a",
-  "./sounds/bell-warn.m4a",
+  "./sounds/cd-beep.m4a",
+  "./sounds/cd-high.m4a",
+  "./sounds/cd-rec.m4a",
+  "./sounds/cd-whistle.m4a",
+  "./sounds/cd-wood.m4a",
+  "./sounds/real1-finish.m4a",
+  "./sounds/real1-phase.m4a",
+  "./sounds/real3-finish.m4a",
+  "./sounds/real3-phase.m4a",
+  "./sounds/synth-finish.m4a",
+  "./sounds/synth-phase.m4a",
+  "./sounds/warn-beep.m4a",
+  "./sounds/warn-bell.m4a",
+  "./sounds/warn-whistle.m4a",
   "./sounds/whistle-calm.m4a",
   "./sounds/whistle-finish.m4a",
-  "./sounds/whistle-phase.m4a",
-  "./sounds/whistle-tick.m4a",
-  "./sounds/whistle-warn.m4a"
+  "./sounds/whistle-phase.m4a"
 ];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS.map((u) => new Request(u, { cache: "reload" })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (e) => {
@@ -46,7 +53,7 @@ self.addEventListener("fetch", (e) => {
   e.respondWith(
     caches.open(CACHE).then(async (cache) => {
       const hit = await cache.match(req, { ignoreSearch: true });
-      const net = fetch(req)
+      const net = fetch(req, { cache: "no-cache" })
         .then((res) => { if (res && res.ok) cache.put(req, res.clone()); return res; })
         .catch(() => hit);
       return hit || net;
