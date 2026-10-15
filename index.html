@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>라운드 타이머</title>
+<meta name="description" content="주짓수 도장용 라운드·인터벌 타이머">
+<meta name="theme-color" content="#F4F5F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12151C" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="라운드">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preload" href="fonts/BigShouldersDisplay-800.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/app.css">
+<script src="js/app.js" defer></script>
+</head>
+<body>
+<div class="wrap" id="view"></div>
+
+<section class="run" id="run" data-kind="prepare" hidden aria-label="운동 진행">
+  <div class="run-top" id="runTop">
+    <button class="icon" id="bClose" aria-label="운동 끝내기">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <div class="meta" id="meta"></div>
+    <div class="left"><b id="mLeft">0:00</b><small>남은 시간</small></div>
+  </div>
+  <div class="center" id="center">
+    <div class="phase" id="phase">준비</div>
+    <div class="digits" id="digits"></div>
+    <div class="next" id="next"></div>
+  </div>
+  <div class="track" id="track" aria-hidden="true"></div>
+  <div class="ctrls">
+    <button class="cbtn" id="bPrev" aria-label="이전 구간">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2.2v14H6zM19 5.6v12.8a.6.6 0 0 1-.92.5L9.4 12.5a.6.6 0 0 1 0-1L18.08 5.1a.6.6 0 0 1 .92.5z"/></svg>
+    </button>
+    <button class="cbtn main" id="bPlay" aria-label="일시정지"></button>
+    <button class="cbtn" id="bNext" aria-label="다음 구간">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M15.8 5H18v14h-2.2zM5 5.6v12.8a.6.6 0 0 0 .92.5l8.68-6.4a.6.6 0 0 0 0-1L5.92 5.1A.6.6 0 0 0 5 5.6z"/></svg>
+    </button>
+  </div>
+  <div class="flash" id="flash"></div>
+  <div class="toast" id="toast" role="status"></div>
+  <div class="done" id="done" hidden>
+    <h2>완료</h2>
+    <div class="big" id="doneTime">0:00</div>
+    <p id="doneSub"></p>
+    <div class="row">
+      <button class="btn" id="bDoneClose">닫기</button>
+      <button class="btn primary" id="bAgain">다시 하기</button>
+    </div>
+  </div>
+</section>
+</body>
+</html>
