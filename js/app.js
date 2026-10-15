@@ -26,7 +26,7 @@ function normalize(d){
   return{
     workouts:Array.isArray(d.workouts)?d.workouts.map(normW):PRESETS.map(normW),
     history:Array.isArray(d.history)?d.history.filter(h=>h&&h.at).slice(0,80).map(h=>({at:+h.at,name:String(h.name||"").slice(0,40),ms:+h.ms||0,done:!!h.done})):[],
-    settings:{sound:s.sound!==false,voice:s.voice!==false,flash:s.flash!==false,warn:s.warn!==false,tone:["beep","bell","whistle"].includes(s.tone)?s.tone:"beep"},
+    settings:{sound:s.sound!==false,voice:s.voice!==false,flash:s.flash!==false,warn:s.warn!==false,tone:s.toneV===2&&["beep","bell","whistle"].includes(s.tone)?s.tone:"bell",toneV:2},
     updatedAt:+d.updatedAt||0
   };
 }
@@ -176,12 +176,19 @@ V.addEventListener("change",e=>{
 
 /* ---------- audio, voice, wake lock ---------- */
 let ac=null,bus=null,noiseBuf=null;
+let keepEl=null;
+function silentWav(){const n=4410,b=new Uint8Array(44+n*2),v=new DataView(b.buffer),w=(o,t)=>{for(let i=0;i<t.length;i++)b[o+i]=t.charCodeAt(i);};
+  w(0,"RIFF");v.setUint32(4,36+n*2,true);w(8,"WAVEfmt ");v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,44100,true);v.setUint32(28,88200,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,"data");v.setUint32(40,n*2,true);
+  return URL.createObjectURL(new Blob([b],{type:"audio/wav"}));}
 function audioUnlock(){
+  /* iOS: 무음 모드에서도 효과음이 나오도록 재생용 오디오 세션으로 전환 */
+  try{if(navigator.audioSession)navigator.audioSession.type="playback";}catch(e){}
+  try{if(!navigator.audioSession){if(!keepEl){keepEl=new Audio(silentWav());keepEl.loop=true;keepEl.setAttribute("playsinline","");}keepEl.play().catch(()=>{});}}catch(e){}
   try{
     if(!ac){ac=new (window.AudioContext||window.webkitAudioContext)();
       const comp=ac.createDynamicsCompressor();comp.threshold.value=-18;comp.knee.value=8;comp.ratio.value=6;comp.attack.value=.003;comp.release.value=.25;
       const out=ac.createGain();out.gain.value=1.4;comp.connect(out);out.connect(ac.destination);bus=comp;}
-    if(ac.state==="suspended")ac.resume();
+    if(ac.state!=="running")ac.resume().catch(()=>{});
     const b=ac.createBuffer(1,1,22050),s=ac.createBufferSource();s.buffer=b;s.connect(ac.destination);s.start(0);
   }catch(e){}
 }
@@ -198,6 +205,12 @@ function whistle(t,dur){
 }
 function beep(kind,seg,force){
   if(!ac||!bus||(!data.settings.sound&&!force))return;
+  if(ac.state!=="running"){ac.resume().then(()=>play(kind,seg)).catch(()=>{});return;}
+  play(kind,seg);
+}
+/* 땡땡땡: 복싱 벨 세 번 */
+function bell3(t,last){ding(t,740,1.2);ding(t+.3,740,1.2);ding(t+.6,740,last?2.6:1.8);}
+function play(kind,seg){
   try{
     const t=ac.currentTime+.01,st=data.settings.tone,calm=!!seg&&seg!=="work"&&seg!=="prepare";
     if(kind==="warn"){
@@ -207,9 +220,9 @@ function beep(kind,seg,force){
       return;
     }
     if(st==="bell"){
-      if(kind==="tick")osc("triangle",1500,t,.08,.4,.002);
-      else if(kind==="phase"){ding(t,740,2);if(calm)ding(t+.35,740,1.8);}
-      else{ding(t,740,1.4);ding(t+.32,740,1.4);ding(t+.64,740,2.4);}
+      if(kind==="tick")osc("square",880,t,.12,.3);
+      else if(kind==="phase"){if(seg!=="prepare")bell3(t);}
+      else bell3(t,true);
     }else if(st==="whistle"){
       if(kind==="tick")whistle(t,.09);
       else if(kind==="phase"){if(calm){whistle(t,.18);whistle(t+.26,.18);}else whistle(t,.7);}
@@ -225,7 +238,7 @@ function speak(t){
   if(!data.settings.voice||!("speechSynthesis" in window))return;
   try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang="ko-KR";u.rate=1.05;speechSynthesis.speak(u);}catch(e){}
 }
-let wl=null;
+let wl=null,speakT=0;
 async function wakeOn(){
   try{if("wakeLock" in navigator){wl=await navigator.wakeLock.request("screen");wl.addEventListener("release",()=>{wl=null;});return true;}}catch(e){}
   return false;
@@ -261,7 +274,7 @@ function start(id){
 function resume(){if(R.finished)return;R.runAt=Date.now();R.running=true;R.lastTick=Date.now();RUN.classList.remove("paused");if(R.idx>=0)$("#phase").textContent=LABEL[R.segs[R.idx].k];
   $("#bPlay").innerHTML=ICON_PAUSE;$("#bPlay").setAttribute("aria-label","일시정지");frame();}
 function pause(){if(!R.running)return;R.base=elapsed();R.running=false;cancelAnimationFrame(R.raf);RUN.classList.add("paused");
-  $("#bPlay").innerHTML=ICON_RESUME;$("#bPlay").setAttribute("aria-label","계속");$("#phase").textContent="일시정지";if("speechSynthesis" in window)speechSynthesis.cancel();}
+  $("#bPlay").innerHTML=ICON_RESUME;$("#bPlay").setAttribute("aria-label","계속");$("#phase").textContent="일시정지";clearTimeout(speakT);if("speechSynthesis" in window)speechSynthesis.cancel();}
 function toggle(){if(R.finished)return;audioUnlock();R.running?pause():resume();}
 function seek(ms){R.base=clamp(ms,0,R.total);if(R.running)R.runAt=Date.now();R.idx=-1;R.cue=true;R.lastTick=Date.now();
   if(!R.running){cancelAnimationFrame(R.raf);frame();}}
@@ -290,7 +303,7 @@ function onSegment(s,cue){
   parts.push('<div><b>'+r+"/"+W.rounds+'</b><small>라운드</small></div>');
   if(W.cycles>1)parts.push('<div><b>'+c+"/"+W.cycles+'</b><small>세트</small></div>');
   $("#meta").innerHTML=parts.join("");
-  if(cue){beep("phase",s.k);speak(phrase(s));flash();}
+  if(cue){beep("phase",s.k);const ph=phrase(s);clearTimeout(speakT);speakT=setTimeout(()=>speak(ph),data.settings.sound&&s.k!=="prepare"?1100:0);flash();}
 }
 function frame(){
   const now=Date.now(),e=elapsed();
@@ -319,7 +332,7 @@ function logHistory(ms,done){
 function finish(){
   cancelAnimationFrame(R.raf);R.running=false;R.finished=true;R.base=R.total;
   RUN.dataset.kind="done";R.trackEls.forEach((el,i)=>{el.className="k-"+R.segs[i].k+" past";el.firstChild.style.width="";});
-  beep("finish");speak("운동 완료");flash();wakeOff();
+  beep("finish");clearTimeout(speakT);speakT=setTimeout(()=>speak("운동 완료"),data.settings.sound?1400:0);flash();wakeOff();
   $("#doneTime").textContent=fmt(R.total/1000);
   $("#doneSub").textContent=R.w.name+"  "+R.w.rounds*R.w.cycles+"라운드";
   $("#done").hidden=false;$("#bAgain").focus({preventScroll:true});
@@ -328,7 +341,7 @@ function finish(){
 function closeRun(){
   if(!R.finished)logHistory(elapsed(),false);
   cancelAnimationFrame(R.raf);R.running=false;R.w=null;wakeOff();
-  if("speechSynthesis" in window)speechSynthesis.cancel();
+  clearTimeout(speakT);if("speechSynthesis" in window)speechSynthesis.cancel();
   RUN.hidden=true;document.body.style.overflow="";render();
 }
 function askClose(){
@@ -349,6 +362,7 @@ document.addEventListener("keydown",e=>{
   else if(e.key==="ArrowRight")next();else if(e.key==="ArrowLeft")prev();else if(e.key==="Escape")askClose();
 });
 document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible"&&ac&&ac.state!=="running")ac.resume().catch(()=>{});
   if(document.visibilityState==="visible"&&R.w&&R.running&&!R.finished){wakeOn();R.lastTick=0;cancelAnimationFrame(R.raf);frame();}
 });
 

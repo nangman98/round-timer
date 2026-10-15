@@ -1,5 +1,5 @@
 /* 오프라인 캐시. 앱 파일을 고치면 VERSION을 올려야 기기에 새 버전이 내려간다. */
-const VERSION = "v2";
+const VERSION = "v3";
 const CACHE = "round-timer-" + VERSION;
 const ASSETS = [
   "./",
