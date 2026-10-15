@@ -32,7 +32,7 @@ fonts/                  Big Shoulders Display 800 (숫자용, latin 서브셋) +
   {
     workouts: [{ id, name, prepare, work, rest, rounds, cycles, cycleRest, cooldown }],  // 시간은 초
     history:  [{ at, name, ms, done }],                                                  // 최근 80개
-    settings: { sound, voice, flash, warn, cd, bell, v },   // cd: 카운트다운 소리(CD), bell: 시작·끝 소리(BELL), 기본 rec/real(시작 땡·끝 땡땡땡)·음성 끔
+    settings: { sound, voice, flash, warn, cd, cdLen, bell, v },   // cd: 카운트다운 소리(CD), cdLen: "3"|"5"|"10"(기본 10), bell: 시작·끝 소리(BELL), 기본 rec/real(시작 땡·끝 땡땡땡)·음성 끔
     updatedAt
   }
   ```
@@ -45,7 +45,7 @@ fonts/                  Big Shoulders Display 800 (숫자용, latin 서브셋) +
   `requestAnimationFrame` 루프(`frame()`)가 매 프레임 현재 구간을 계산하고,
   `R.lastTick`이 1.5초 이상 지났으면(복귀 직후) 밀린 알림을 한꺼번에 울리지 않는다.
 - **알림**
-  - `beep(kind, segKind, force)` — kind: `tick`(마지막 3초) `warn`(종료 10초 전) `phase`(구간 전환) `finish`
+  - `beep(kind, segKind, force)` — kind: `tick`(마지막 cdLen초) `warn`(종료 10초 전) `phase`(구간 전환) `finish`
   - `sndName()`이 설정(`cd`, `bell`)으로 `sounds/*.m4a`를 고르고 `<audio>`로 재생. 복싱 벨 녹음은 `tools/cut-bell.py`(Freesound CC0, `sounds/CREDITS.txt`).
   - `speak()` 한국어 음성(speechSynthesis), `flash()` 화면 깜빡임
   - iOS 오디오 잠금 해제를 위해 사용자가 누르는 순간 `audioUnlock()`을 호출한다 (시작/일시정지/건너뛰기 버튼).

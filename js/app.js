@@ -8,8 +8,9 @@ const uid=()=>"w"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 
 /* ---------- data ---------- */
 const KEY="round-timer.v1";
-/* 소리 선택지: 카운트다운(마지막 3초) / 라운드 시작·끝. 파일은 sounds/cd-<키>.m4a, sounds/<키>-phase|finish.m4a */
+/* 소리 선택지: 카운트다운(구간 마지막 N초) / 라운드 시작·끝. 파일은 sounds/cd-<키>.m4a, sounds/<키>-phase|finish.m4a */
 const CD=[["rec","삐 (녹음)"],["beep","띠 (전자음)"],["high","띡 (높은음)"],["wood","딱 (우드블록)"],["whistle","호루라기"]];
+const CDLEN=[["3","3초"],["5","5초"],["10","10초"]];
 const BELL=[["real","시작 땡 · 끝 땡땡땡"],["real3","땡땡땡 (복싱 벨)"],["real1","땡 (복싱 벨)"],["synth","땡땡땡 (합성음)"],["beep","삐- (전자음)"],["whistle","호루라기"]];
 const LIMITS={prepare:[0,600],work:[1,3600],rest:[0,3600],rounds:[1,99],cycles:[1,20],cycleRest:[0,3600],cooldown:[0,3600]};
 const PRESETS=[
@@ -30,7 +31,7 @@ function normalize(d){
     workouts:Array.isArray(d.workouts)?d.workouts.map(normW):PRESETS.map(normW),
     history:Array.isArray(d.history)?d.history.filter(h=>h&&h.at).slice(0,80).map(h=>({at:+h.at,name:String(h.name||"").slice(0,40),ms:+h.ms||0,done:!!h.done})):[],
     settings:{sound:s.sound!==false,voice:s.v>=3?s.voice===true:false,flash:s.flash!==false,warn:s.warn!==false,
-      cd:CD.some(o=>o[0]===s.cd)?s.cd:"rec",bell:s.v>=5&&BELL.some(o=>o[0]===s.bell)?s.bell:"real",v:5},
+      cd:CD.some(o=>o[0]===s.cd)?s.cd:"rec",cdLen:CDLEN.some(o=>o[0]===s.cdLen)?s.cdLen:"10",bell:s.v>=5&&BELL.some(o=>o[0]===s.bell)?s.bell:"real",v:5},
     updatedAt:+d.updatedAt||0
   };
 }
@@ -141,8 +142,8 @@ function renderHistory(){
 }
 function pick(key,title,opts){return '<div class="tones"><span>'+title+'<small>눌러서 미리 들어 보세요</small></span><div class="seg wrap" role="radiogroup" aria-label="'+title+'">'+
   opts.map(([k,l])=>'<button role="radio" aria-checked="'+(data.settings[key]===k)+'" data-pick="'+key+'" data-val="'+k+'">'+l+'</button>').join("")+'</div></div>';}
-function toneSel(){return pick("cd","카운트다운 소리 (마지막 3초)",CD)+pick("bell","라운드 시작·끝 소리",BELL);}
-const SETS=[["sound","효과음","마지막 3초와 구간이 바뀔 때"],["warn","종료 10초 전 알림","30초 이상인 운동 구간에서"],["voice","음성 안내","구간 이름을 읽어 줘요"],["flash","화면 깜빡임","구간이 바뀔 때 한 번 번쩍"]];
+function toneSel(){return pick("cdLen","카운트다운 길이 (구간이 끝나기 전)",CDLEN)+pick("cd","카운트다운 소리",CD)+pick("bell","라운드 시작·끝 소리",BELL);}
+const SETS=[["sound","효과음","카운트다운과 구간이 바뀔 때"],["warn","종료 10초 전 알림","30초 이상인 운동 구간에서 (카운트다운이 10초면 생략)"],["voice","음성 안내","구간 이름을 읽어 줘요"],["flash","화면 깜빡임","구간이 바뀔 때 한 번 번쩍"]];
 function renderSettings(){
   V.innerHTML='<header class="top"><button class="back" data-go="home">'+CHEV+'목록</button><h2>설정</h2></header><div style="border-top:1px solid var(--line)">'+
     SETS.map(([k,l,h])=>'<button class="set" role="switch" aria-checked="'+data.settings[k]+'" data-set="'+k+'"><span>'+l+'<small>'+h+'</small></span><span class="sw"></span></button>'+(k==="sound"?toneSel():"")).join("")+
@@ -158,7 +159,7 @@ V.addEventListener("click",e=>{
   if(b.hasAttribute("data-new")){const w=normW({name:"새 운동",prepare:10,work:30,rest:15,rounds:8,cycles:1});data.workouts.push(w);persist();editId=w.id;view="edit";render();window.scrollTo(0,0);setTimeout(()=>{const n=$("#fName");n&&n.select();},50);return;}
   if(b.hasAttribute("data-del")){data.workouts=data.workouts.filter(w=>w.id!==editId);persist();view="home";render();return;}
   if(b.dataset.set){const k=b.dataset.set;data.settings[k]=!data.settings[k];persist();renderSettings();return;}
-  if(b.dataset.pick){const k=b.dataset.pick;data.settings[k]=b.dataset.val;persist();renderSettings();audioUnlock();beep(k==="cd"?"tick":"phase","work",true);return;}
+  if(b.dataset.pick){const k=b.dataset.pick;data.settings[k]=b.dataset.val;persist();renderSettings();audioUnlock();beep(k==="bell"?"phase":"tick","work",true);return;}
   if(b.hasAttribute("data-clear")){if(clearArm>Date.now()){data.history=[];clearArm=0;persist();}else{clearArm=Date.now()+3000;setTimeout(()=>{if(view==="history")renderHistory();},3100);}renderHistory();return;}
 });
 /* steppers with press-and-hold */
@@ -289,7 +290,7 @@ function frame(){
   if(i!==R.idx){R.idx=i;onSegment(s,R.cue||(R.running&&fresh));R.cue=false;R.lastSec=sec;}
   else if(sec!==R.lastSec){
     if(R.running&&fresh){
-      if(sec>=1&&sec<=3&&s.d>=5)beep("tick");
+      if(sec>=1&&sec<=+data.settings.cdLen&&s.d>=Math.max(5,+data.settings.cdLen))beep("tick");
       else if(sec===10&&s.k==="work"&&s.d>=30&&data.settings.warn){beep("warn");speak("10초");}
     }
     R.lastSec=sec;
