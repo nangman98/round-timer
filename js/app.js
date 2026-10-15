@@ -290,7 +290,7 @@ function frame(){
   if(i!==R.idx){R.idx=i;onSegment(s,R.cue||(R.running&&fresh));R.cue=false;R.lastSec=sec;}
   else if(sec!==R.lastSec){
     if(R.running&&fresh){
-      if(sec>=1&&sec<=+data.settings.cdLen&&s.d>=Math.max(5,+data.settings.cdLen))beep("tick");
+      if(sec>=1&&sec<=+data.settings.cdLen)beep("tick");
       else if(sec===10&&s.k==="work"&&s.d>=30&&data.settings.warn){beep("warn");speak("10초");}
     }
     R.lastSec=sec;

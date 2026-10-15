@@ -1,6 +1,6 @@
 /* 오프라인 캐시. 앱 파일을 고치면 VERSION을 올려야 기기에 새 버전이 내려간다.
    설치할 때 브라우저 HTTP 캐시를 건너뛰어(cache:"reload") 옛 파일과 새 파일이 섞이지 않게 한다. */
-const VERSION = "v8";
+const VERSION = "v9";
 const CACHE = "round-timer-" + VERSION;
 const ASSETS = [
   "./",
